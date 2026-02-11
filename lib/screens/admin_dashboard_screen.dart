@@ -10,33 +10,40 @@ class AdminDashboardScreen extends StatelessWidget {
     Color color,
   ) {
     return Card(
+      elevation: 2,
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(icon, size: 32, color: color),
-                Text(
-                  count,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black,
+                Icon(icon, size: 28, color: color),
+                Flexible(
+                  child: Text(
+                    count,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Text(
               title,
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
                 color: Colors.black54,
               ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -133,48 +140,82 @@ class AdminDashboardScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    "Total Stations",
-                    "120",
-                    Icons.location_city,
-                    Colors.blue,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                    "Active Officers",
-                    "45",
-                    Icons.badge,
-                    Colors.green,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    "Total Voters",
-                    "12,430",
-                    Icons.people,
-                    Colors.purple,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                    "Votes Cast",
-                    "8,245",
-                    Icons.how_to_vote,
-                    Colors.orange,
-                  ),
-                ),
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                // Use GridView for better responsive design
+                double cardWidth = (constraints.maxWidth - 12) / 2;
+                bool useGrid = cardWidth > 140; // Minimum card width
+
+                if (useGrid) {
+                  return GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.3,
+                    children: [
+                      _buildStatCard(
+                        "Total Stations",
+                        "120",
+                        Icons.location_city,
+                        Colors.blue,
+                      ),
+                      _buildStatCard(
+                        "Active Officers",
+                        "45",
+                        Icons.badge,
+                        Colors.green,
+                      ),
+                      _buildStatCard(
+                        "Total Voters",
+                        "12,430",
+                        Icons.people,
+                        Colors.purple,
+                      ),
+                      _buildStatCard(
+                        "Votes Cast",
+                        "8,245",
+                        Icons.how_to_vote,
+                        Colors.orange,
+                      ),
+                    ],
+                  );
+                } else {
+                  // Fallback to column layout for very small screens
+                  return Column(
+                    children: [
+                      _buildStatCard(
+                        "Total Stations",
+                        "120",
+                        Icons.location_city,
+                        Colors.blue,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildStatCard(
+                        "Active Officers",
+                        "45",
+                        Icons.badge,
+                        Colors.green,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildStatCard(
+                        "Total Voters",
+                        "12,430",
+                        Icons.people,
+                        Colors.purple,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildStatCard(
+                        "Votes Cast",
+                        "8,245",
+                        Icons.how_to_vote,
+                        Colors.orange,
+                      ),
+                    ],
+                  );
+                }
+              },
             ),
             const SizedBox(height: 32),
 

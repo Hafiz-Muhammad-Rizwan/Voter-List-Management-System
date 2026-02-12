@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/election_provider.dart';
 import 'screens/splash_screen.dart';
@@ -8,10 +10,13 @@ import 'screens/admin_dashboard_screen.dart';
 import 'screens/officer_dashboard_screen.dart';
 import 'screens/voter_list_screen.dart';
 import 'screens/voter_detail_screen.dart';
+import 'screens/admin_voters_screen.dart';
 import 'features/stations/presentation/manage_stations_screen.dart';
 import 'features/officers/presentation/manage_officers_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const VoterManagementApp());
 }
 
@@ -39,6 +44,7 @@ class VoterManagementApp extends StatelessWidget {
           '/admin-dashboard': (context) => const AdminDashboardScreen(),
           '/officer-dashboard': (context) => const OfficerDashboardScreen(),
           '/voter-list': (context) => const VoterListScreen(),
+          '/admin-voters': (context) => const AdminVotersScreen(),
           '/manage-stations': (context) => const ManageStationsScreen(),
           '/manage-officers': (context) => const ManageOfficersScreen(),
         },

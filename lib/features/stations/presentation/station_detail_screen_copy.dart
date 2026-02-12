@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../models/station.dart';
+import 'station_voters_screen.dart';
 
 class StationDetailScreen extends StatefulWidget {
-  final String stationName;
+  final Station station;
   final String? assignedOfficer;
   final List<String>? officers;
 
-  const StationDetailScreen({super.key, required this.stationName, this.assignedOfficer, this.officers});
+  const StationDetailScreen({
+    super.key,
+    required this.station,
+    this.assignedOfficer,
+    this.officers,
+  });
 
   @override
   State<StationDetailScreen> createState() => _StationDetailScreenState();
@@ -24,21 +31,24 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.stationName)),
+      appBar: AppBar(title: Text(widget.station.name)),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             _infoSection(
               title: "Assigned Officer",
-              value: _assignedOfficer == null ? "Not Assigned" : _assignedOfficer!,
+              value: _assignedOfficer == null
+                  ? "Not Assigned"
+                  : _assignedOfficer!,
               borderColor: AppColors.primary,
               buttonText: "Assign / Change Officer",
               onPressed: () async {
                 final selected = await Navigator.push<String?>(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => AssignOfficerScreen(officers: widget.officers),
+                    builder: (_) =>
+                        AssignOfficerScreen(officers: widget.officers),
                   ),
                 );
 
@@ -52,10 +62,18 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
             const SizedBox(height: 24),
             _infoSection(
               title: "Voters",
-              value: "Total Voters: 500",
+              value: "Manage voters for this station",
               borderColor: AppColors.secondary,
               buttonText: "View / Import Voters",
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        StationVotersScreen(station: widget.station),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -79,9 +97,10 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style:
-                  const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           Text(value),
           const SizedBox(height: 16),
@@ -93,7 +112,10 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
               onPressed: onPressed,
-              child: Text(buttonText, style: const TextStyle(color: Colors.white)),
+              child: Text(
+                buttonText,
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
           ),
         ],

@@ -3,11 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/voter.dart';
 import '../providers/election_provider.dart';
+import '../core/services/firebase_service.dart';
 
-class VoterDetailScreen extends StatelessWidget {
+class VoterDetailScreen extends StatefulWidget {
   final Voter voter;
 
   const VoterDetailScreen({super.key, required this.voter});
+
+  @override
+  State<VoterDetailScreen> createState() => _VoterDetailScreenState();
+}
+
+class _VoterDetailScreenState extends State<VoterDetailScreen> {
+  final FirebaseService _firebaseService = FirebaseService();
+  bool _isMarking = false;
 
   Widget _buildInfoRow(String label, String value) {
     return Padding(
@@ -40,6 +49,34 @@ class VoterDetailScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _markAsVoted() async {
+    setState(() => _isMarking = true);
+    try {
+      await _firebaseService.markVoterAsVoted(widget.voter.id);
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Voter marked as voted successfully"),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      // Return true to indicate voter was updated
+      Navigator.pop(context, true);
+    } catch (e) {
+      setState(() => _isMarking = false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error marking voter: $e"),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
@@ -75,10 +112,10 @@ class VoterDetailScreen extends StatelessWidget {
               child: CircleAvatar(
                 radius: 67,
                 backgroundColor: Colors.grey[100],
-                backgroundImage: voter.photoUrl != null
-                    ? NetworkImage(voter.photoUrl!)
+                backgroundImage: widget.voter.photoUrl != null
+                    ? NetworkImage(widget.voter.photoUrl!)
                     : null,
-                child: voter.photoUrl == null
+                child: widget.voter.photoUrl == null
                     ? const Icon(Icons.person, size: 60, color: Colors.black54)
                     : null,
               ),
@@ -87,7 +124,7 @@ class VoterDetailScreen extends StatelessWidget {
 
             // Name and Basic Info
             Text(
-              voter.name,
+              widget.voter.name,
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
@@ -97,7 +134,7 @@ class VoterDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              "S/O: ${voter.fatherName}",
+              "S/O: ${widget.voter.fatherName}",
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w400,
@@ -124,23 +161,23 @@ class VoterDetailScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    _buildInfoRow("CNIC", voter.cnic),
+                    _buildInfoRow("CNIC", widget.voter.cnic),
                     const Divider(height: 24),
-                    _buildInfoRow("Address", voter.address),
+                    _buildInfoRow("Address", widget.voter.address),
                     const Divider(height: 24),
-                    _buildInfoRow("Station ID", voter.stationId),
+                    _buildInfoRow("Station ID", widget.voter.stationId),
                     const Divider(height: 24),
                     _buildInfoRow(
                       "Eligibility",
-                      voter.isEligible ? "Eligible" : "Not Eligible",
+                      widget.voter.isEligible ? "Eligible" : "Not Eligible",
                     ),
-                    if (voter.votedAt != null) ...[
+                    if (widget.voter.votedAt != null) ...[
                       const Divider(height: 24),
                       _buildInfoRow(
                         "Voted At",
-                        "${voter.votedAt!.day}/${voter.votedAt!.month}/${voter.votedAt!.year} "
-                            "${voter.votedAt!.hour.toString().padLeft(2, '0')}:"
-                            "${voter.votedAt!.minute.toString().padLeft(2, '0')}",
+                        "${widget.voter.votedAt!.day}/${widget.voter.votedAt!.month}/${widget.voter.votedAt!.year} "
+                            "${widget.voter.votedAt!.hour.toString().padLeft(2, '0')}:"
+                            "${widget.voter.votedAt!.minute.toString().padLeft(2, '0')}",
                       ),
                     ],
                   ],
@@ -150,7 +187,7 @@ class VoterDetailScreen extends StatelessWidget {
             const SizedBox(height: 32),
 
             // Voting Status and Action
-            if (voter.hasVoted) ...[
+            if (widget.voter.hasVoted) ...[
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(24),
@@ -184,7 +221,7 @@ class VoterDetailScreen extends StatelessWidget {
                   ],
                 ),
               ),
-            ] else if (!voter.isEligible) ...[
+            ] else if (!widget.voter.isEligible) ...[
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(24),
@@ -219,21 +256,23 @@ class VoterDetailScreen extends StatelessWidget {
                 width: double.infinity,
                 height: 64,
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    provider.markAsVoted(voter.id);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Voter marked as voted successfully"),
-                        backgroundColor: Colors.green,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                    Navigator.pop(context);
-                  },
-                  icon: const Icon(Icons.check_circle_outline, size: 28),
-                  label: const Text(
-                    "Mark as Voted",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  onPressed: _isMarking ? null : _markAsVoted,
+                  icon: _isMarking
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(Icons.check_circle_outline, size: 28),
+                  label: Text(
+                    _isMarking ? "Processing..." : "Mark as Voted",
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,

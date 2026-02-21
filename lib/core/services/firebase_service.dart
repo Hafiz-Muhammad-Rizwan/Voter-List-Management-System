@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as auth;
 import '../../models/station.dart';
 import '../../models/user.dart';
 import '../../models/voter.dart';
@@ -9,6 +10,7 @@ class FirebaseService {
   FirebaseService._internal();
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final auth.FirebaseAuth _auth = auth.FirebaseAuth.instance;
 
   // Station Operations
   Future<List<Station>> getStations() async {
@@ -44,9 +46,14 @@ class FirebaseService {
 
   Future<void> deleteStation(String stationId) async {
     try {
-      // Also remove any officer assignments to this station
+      // Get all users and voters associated with this station
       final users = await _firestore
           .collection('users')
+          .where('station_id', isEqualTo: stationId)
+          .get();
+
+      final voters = await _firestore
+          .collection('voters')
           .where('station_id', isEqualTo: stationId)
           .get();
 
@@ -55,6 +62,11 @@ class FirebaseService {
       // Update users to remove station assignment
       for (var doc in users.docs) {
         batch.update(doc.reference, {'station_id': FieldValue.delete()});
+      }
+
+      // Delete all voters associated with this station
+      for (var doc in voters.docs) {
+        batch.delete(doc.reference);
       }
 
       // Delete the station
@@ -211,6 +223,18 @@ class FirebaseService {
           .toList();
     } catch (e) {
       throw Exception('Failed to search officers: $e');
+    }
+  }
+
+  // Authentication Operations
+  Future<void> createAuthAccount(String email, String password) async {
+    try {
+      await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+    } catch (e) {
+      throw Exception('Failed to create authentication account: $e');
     }
   }
 }

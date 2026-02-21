@@ -188,6 +188,12 @@ class _CreateOfficerScreenState extends State<CreateOfficerScreen> {
         throw Exception('An account with this email already exists');
       }
 
+      // Create Firebase Authentication account
+      await _firebaseService.createAuthAccount(
+        _emailController.text.trim(),
+        'officer123',
+      );
+
       final user = User(
         id: _uuid.v4(),
         email: _emailController.text.trim(),

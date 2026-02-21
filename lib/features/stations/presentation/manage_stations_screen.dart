@@ -550,13 +550,26 @@ class _ManageStationsScreenState extends State<ManageStationsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Are you sure you want to delete "${station.name}"?'),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             const Text(
               'This will also:',
-              style: TextStyle(fontWeight: FontWeight.w500),
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
             ),
+            const SizedBox(height: 4),
             const Text('• Remove any officer assignments'),
-            const Text('• This action cannot be undone'),
+            const Text(
+              '• Delete ALL voters associated with this station',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'This action cannot be undone!',
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
           ],
         ),
         actions: [

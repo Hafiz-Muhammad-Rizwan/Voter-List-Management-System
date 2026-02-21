@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart' as auth;
+import '../core/services/firebase_service.dart';
+import '../models/user.dart';
+import 'officer_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,6 +17,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  final auth.FirebaseAuth _auth = auth.FirebaseAuth.instance;
+  final FirebaseService _firebaseService = FirebaseService();
 
   @override
   void dispose() {
@@ -28,24 +34,71 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
     });
 
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      // Authenticate with Firebase
+      final userCredential = await _auth.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    // Mock role determination based on email
-    final email = _emailController.text.toLowerCase();
-    bool isAdmin = email.contains('admin') || email.contains('manager');
+      // Fetch user data from Firestore
+      final users = await _firebaseService.getUsers();
+      final user = users.firstWhere(
+        (u) =>
+            u.email.toLowerCase() == _emailController.text.trim().toLowerCase(),
+        orElse: () => throw Exception('User not found in database'),
+      );
 
-    setState(() {
-      _isLoading = false;
-    });
+      setState(() {
+        _isLoading = false;
+      });
 
-    // Navigate based on role
-    if (isAdmin) {
-      Navigator.pushReplacementNamed(context, '/admin-dashboard');
-    } else {
-      Navigator.pushReplacementNamed(context, '/officer-dashboard');
+      if (!mounted) return;
+
+      // Navigate based on role
+      if (user.role == 'admin') {
+        Navigator.pushReplacementNamed(context, '/admin-dashboard');
+      } else if (user.role == 'officer') {
+        // Pass officer data to dashboard
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OfficerDashboardScreen(officer: user),
+          ),
+        );
+      } else {
+        throw Exception('Unknown user role');
+      }
+    } on auth.FirebaseAuthException catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (!mounted) return;
+      String message = 'Login failed';
+      if (e.code == 'user-not-found') {
+        message = 'No account found with this email';
+      } else if (e.code == 'wrong-password') {
+        message = 'Incorrect password';
+      } else if (e.code == 'invalid-email') {
+        message = 'Invalid email address';
+      } else if (e.code == 'user-disabled') {
+        message = 'This account has been disabled';
+      } else {
+        message = e.message ?? 'Login failed';
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
+      );
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -201,7 +254,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "Demo Instructions:",
+                          "Login Information:",
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -210,9 +263,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         SizedBox(height: 8),
                         Text(
-                          "• Use any email with 'admin' for Admin access\n"
-                          "• Use any other email for Officer access\n"
-                          "• Password must be 6+ characters",
+                          "• Use your registered email address\n"
+                          "• Officers: default password is 'officer123'\n"
+                          "• Make sure you have a station assigned",
                           style: TextStyle(fontSize: 12, color: Colors.black54),
                         ),
                       ],

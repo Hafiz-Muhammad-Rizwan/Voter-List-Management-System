@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/election_provider.dart';
+import 'package:firebase_auth/firebase_auth.dart' as auth;
 import '../core/services/firebase_service.dart';
 import '../models/voter.dart';
 import '../models/user.dart';
+import '../models/station.dart';
 
 class OfficerDashboardScreen extends StatefulWidget {
   final User? officer; // Optional: pass officer details if available
@@ -18,6 +18,7 @@ class _OfficerDashboardScreenState extends State<OfficerDashboardScreen> {
   final FirebaseService _firebaseService = FirebaseService();
   List<Voter> _voters = [];
   User? _currentOfficer;
+  String _stationName = '';
   bool _isLoading = true;
 
   @override
@@ -29,33 +30,77 @@ class _OfficerDashboardScreenState extends State<OfficerDashboardScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      // In a real app, get the current logged-in officer's ID
-      // For now, we'll use the passed officer or fetch based on station
       User? officer = widget.officer;
 
-      // If no officer passed, try to get from provider or fetch from Firebase
+      // If no officer passed, try to get from Firebase Auth
       if (officer == null) {
-        final provider = Provider.of<ElectionProvider>(context, listen: false);
-        // Load voters for the officer's station (using provider's stationId for now)
-        final voters = await _firebaseService.getVoters(
-          stationId: provider.stationId,
-        );
-        setState(() {
-          _voters = voters;
-          _currentOfficer = officer;
-          _isLoading = false;
-        });
-      } else {
-        // Load voters for officer's assigned station
-        final voters = await _firebaseService.getVoters(
-          stationId: officer.stationId ?? '',
-        );
-        setState(() {
-          _voters = voters;
-          _currentOfficer = officer;
-          _isLoading = false;
-        });
+        final currentUser = auth.FirebaseAuth.instance.currentUser;
+        if (currentUser != null) {
+          final users = await _firebaseService.getUsers();
+          officer = users.firstWhere(
+            (u) => u.email.toLowerCase() == currentUser.email?.toLowerCase(),
+            orElse: () => throw Exception('Officer not found'),
+          );
+        } else {
+          throw Exception('No authenticated user found');
+        }
       }
+
+      // At this point officer should not be null, but we add an explicit check
+      if (officer == null) {
+        throw Exception('Failed to load officer data');
+      }
+
+      // Check if officer has a station assigned
+      if (officer.stationId == null || officer.stationId!.isEmpty) {
+        setState(() {
+          _voters = [];
+          _currentOfficer = officer;
+          _stationName = 'No Station Assigned';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Load station information first to validate
+      final stations = await _firebaseService.getStations();
+      final station = stations.cast<Station?>().firstWhere(
+        (s) => s?.id == officer?.stationId,
+        orElse: () => null,
+      );
+
+      // If station not found, show warning
+      if (station == null) {
+        setState(() {
+          _voters = [];
+          _currentOfficer = officer;
+          _stationName = 'Station Not Found';
+          _isLoading = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Your assigned station was not found. Please contact admin.',
+              ),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Load voters for officer's assigned station
+      final voters = await _firebaseService.getVoters(
+        stationId: officer.stationId,
+      );
+
+      setState(() {
+        _voters = voters;
+        _currentOfficer = officer;
+        _stationName = station.name;
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() => _isLoading = false);
       if (!mounted) return;
@@ -65,6 +110,7 @@ class _OfficerDashboardScreenState extends State<OfficerDashboardScreen> {
     }
   }
 
+  int get totalVoters => _voters.length;
   int get verifiedCount => _voters.where((v) => v.hasVoted).length;
   int get pendingCount =>
       _voters.where((v) => !v.hasVoted && v.isEligible).length;
@@ -101,8 +147,6 @@ class _OfficerDashboardScreenState extends State<OfficerDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<ElectionProvider>(context, listen: false);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("Officer Dashboard"),
@@ -137,9 +181,9 @@ class _OfficerDashboardScreenState extends State<OfficerDashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Welcome Section
-                      const Text(
-                        "Welcome, Officer",
-                        style: TextStyle(
+                      Text(
+                        "Welcome, ${_currentOfficer?.name ?? 'Officer'}",
+                        style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w700,
                           color: Colors.black,
@@ -147,7 +191,7 @@ class _OfficerDashboardScreenState extends State<OfficerDashboardScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        "Station: ${_currentOfficer?.stationId ?? provider.stationName}",
+                        "Station: $_stationName",
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w500,
@@ -216,7 +260,7 @@ class _OfficerDashboardScreenState extends State<OfficerDashboardScreen> {
                                     ),
                                   ),
                                   Text(
-                                    "${_voters.isEmpty ? 0 : ((verifiedCount / _voters.length) * 100).toInt()}%",
+                                    "${totalVoters == 0 ? 0 : ((verifiedCount / totalVoters) * 100).toInt()}%",
                                     style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w700,
@@ -227,9 +271,9 @@ class _OfficerDashboardScreenState extends State<OfficerDashboardScreen> {
                               ),
                               const SizedBox(height: 12),
                               LinearProgressIndicator(
-                                value: _voters.isEmpty
+                                value: totalVoters == 0
                                     ? 0
-                                    : verifiedCount / _voters.length,
+                                    : verifiedCount / totalVoters,
                                 backgroundColor: Colors.grey[300],
                                 valueColor: const AlwaysStoppedAnimation<Color>(
                                   Colors.black,

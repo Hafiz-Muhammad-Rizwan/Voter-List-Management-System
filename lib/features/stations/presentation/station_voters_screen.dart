@@ -4,7 +4,6 @@ import '../../../core/services/firebase_service.dart';
 import '../../../core/services/voter_import_service.dart';
 import '../../../models/voter.dart';
 import '../../../models/station.dart';
-import '../../../screens/voter_detail_screen.dart';
 
 class StationVotersScreen extends StatefulWidget {
   final Station station;
@@ -89,7 +88,7 @@ class _StationVotersScreenState extends State<StationVotersScreen> {
             const Text('This will import voters from a CSV or JSON file.'),
             const SizedBox(height: 8),
             const Text(
-              'CSV Format:',
+              'CSV Format:', 
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const Text(
@@ -216,6 +215,140 @@ class _StationVotersScreenState extends State<StationVotersScreen> {
     );
   }
 
+  Future<void> _confirmDeleteVoter(Voter voter) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Voter'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Are you sure you want to delete this voter?'),
+            const SizedBox(height: 16),
+            Text(
+              'Name: ${voter.name}',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            Text('CNIC: ${voter.cnic}'),
+            const SizedBox(height: 8),
+            const Text(
+              'This action cannot be undone.',
+              style: TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _deleteVoter(voter);
+    }
+  }
+
+  Future<void> _deleteVoter(Voter voter) async {
+    try {
+      await _firebaseService.deleteVoter(voter.id);
+      await _loadVoters();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Voter deleted successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error deleting voter: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _showVoterDetails(Voter voter) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Voter Details'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildDetailRow('Name', voter.name),
+              const Divider(),
+              _buildDetailRow('Father\'s Name', voter.fatherName),
+              const Divider(),
+              _buildDetailRow('CNIC', voter.cnic),
+              const Divider(),
+              _buildDetailRow('Address', voter.address),
+              const Divider(),
+              _buildDetailRow('Station', widget.station.name),
+              const Divider(),
+              _buildDetailRow(
+                'Eligibility',
+                voter.isEligible ? 'Eligible' : 'Not Eligible',
+              ),
+              const Divider(),
+              _buildDetailRow('Status', voter.hasVoted ? 'VOTED' : 'NOT VOTED'),
+              if (voter.hasVoted && voter.votedAt != null) ...[
+                const Divider(),
+                _buildDetailRow(
+                  'Voted At',
+                  '${voter.votedAt!.day}/${voter.votedAt!.month}/${voter.votedAt!.year} '
+                      '${voter.votedAt!.hour.toString().padLeft(2, '0')}:'
+                      '${voter.votedAt!.minute.toString().padLeft(2, '0')}',
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
+        ],
+      ),
+    );
+  }
+
   Widget _buildVoterCard(Voter voter) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -280,14 +413,14 @@ class _StationVotersScreenState extends State<StationVotersScreen> {
             ],
           ],
         ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: voter.hasVoted ? Colors.red[50] : Colors.green[50],
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: voter.hasVoted ? Colors.red[300]! : Colors.green[300]!,
                   width: 1,
@@ -296,30 +429,45 @@ class _StationVotersScreenState extends State<StationVotersScreen> {
               child: Text(
                 voter.hasVoted ? "VOTED" : "PENDING",
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: voter.hasVoted ? Colors.red[700] : Colors.green[700],
                 ),
               ),
             ),
-            const SizedBox(height: 4),
-            const Icon(
-              Icons.arrow_forward_ios,
-              size: 16,
-              color: Colors.black38,
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'view') {
+                  _showVoterDetails(voter);
+                } else if (value == 'delete') {
+                  _confirmDeleteVoter(voter);
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'view',
+                  child: Row(
+                    children: [
+                      Icon(Icons.visibility, size: 18),
+                      SizedBox(width: 8),
+                      Text('View Details'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, size: 18, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Delete', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ],
         ),
-        onTap: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => VoterDetailScreen(voter: voter)),
-          );
-          // Refresh if voter was marked as voted
-          if (result == true) {
-            await _loadVoters();
-          }
-        },
       ),
     );
   }

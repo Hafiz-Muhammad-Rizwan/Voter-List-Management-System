@@ -41,6 +41,7 @@ dependencies:
   # Firebase
   firebase_core: ^4.4.0
   cloud_firestore: ^6.1.2
+  firebase_auth: ^6.1.4
   
   # File handling
   file_picker: ^8.0.0
